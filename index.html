@@ -12,6 +12,7 @@
     h1 { font-size: 1.2rem; font-weight: 600; }
     .version { font-size: 0.7rem; color: #9ca3af; margin-top: 2px; }
     .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .topbar-right { display: flex; gap: 8px; }
     .btn-primary { background: #6366f1; color: #fff; border: none; padding: 8px 16px; border-radius: 10px; font-size: 0.85rem; cursor: pointer; }
     .btn-primary:hover { background: #4f46e5; }
     .btn-outline { background: #fff; color: #6b7280; border: 1px solid #e5e7eb; padding: 8px 14px; border-radius: 10px; font-size: 0.85rem; cursor: pointer; }
@@ -40,6 +41,24 @@
       outline: none; background: #fff;
     }
     .form-box input:focus, .form-box select:focus { border-color: #6366f1; }
+    /* Image upload */
+    .upload-area {
+      border: 2px dashed #e5e7eb; border-radius: 10px; padding: 14px;
+      text-align: center; cursor: pointer; margin-bottom: 10px; transition: border-color 0.2s;
+    }
+    .upload-area:hover { border-color: #6366f1; }
+    .upload-area input[type=file] { display: none; }
+    .upload-area .upload-icon { font-size: 1.6rem; margin-bottom: 4px; }
+    .upload-area .upload-text { font-size: 0.78rem; color: #9ca3af; }
+    .upload-area .upload-sub { font-size: 0.72rem; color: #c4c4c4; margin-top: 2px; }
+    .preview-wrap { position: relative; margin-bottom: 10px; }
+    .preview-wrap img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 10px; display: block; }
+    .preview-wrap .btn-remove-img {
+      position: absolute; top: 6px; right: 6px;
+      background: rgba(0,0,0,0.5); color: #fff; border: none;
+      border-radius: 50%; width: 24px; height: 24px; font-size: 0.9rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
     .form-box .btn-save { width: 100%; background: #6366f1; color: #fff; border: none; border-radius: 10px; padding: 10px; font-size: 0.9rem; cursor: pointer; }
     .form-box .btn-save:hover { background: #4f46e5; }
     .chart-box { background: #fff; border-radius: 14px; border: 1px solid #e5e7eb; padding: 16px; margin-bottom: 20px; }
@@ -56,11 +75,16 @@
     .tx-info { flex: 1; min-width: 0; }
     .tx-cat { font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .tx-date { font-size: 0.72rem; color: #9ca3af; }
-    .tx-amount { font-size: 0.85rem; font-weight: 500; margin-right: 10px; }
+    .tx-amount { font-size: 0.85rem; font-weight: 500; margin-right: 6px; white-space: nowrap; }
     .tx-amount.income { color: #16a34a; } .tx-amount.expense { color: #ef4444; }
+    .tx-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 7px; margin-right: 6px; cursor: pointer; flex-shrink: 0; }
     .btn-del { background: none; border: none; font-size: 1.3rem; color: #d1d5db; cursor: pointer; line-height: 1; }
     .btn-del:hover { color: #ef4444; }
-    .topbar-right { display: flex; gap: 8px; }
+    /* Lightbox */
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 999; align-items: center; justify-content: center; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 92vw; max-height: 88vh; border-radius: 12px; object-fit: contain; }
+    .lightbox-close { position: absolute; top: 16px; right: 20px; color: #fff; font-size: 2rem; cursor: pointer; background: none; border: none; }
   </style>
 </head>
 <body>
@@ -68,7 +92,7 @@
   <div class="topbar">
     <div>
       <h1>รายรับ-รายจ่าย</h1>
-      <div class="version">v1.0.0</div>
+      <div class="version">v1.1.0</div>
     </div>
     <div class="topbar-right">
       <button class="btn-outline" id="btnExport" style="display:none" onclick="exportCSV()">⬇ CSV</button>
@@ -98,6 +122,19 @@
     <select id="fCategory"></select>
     <input type="text" id="fNote" placeholder="หมายเหตุ (ถ้ามี)"/>
     <input type="date" id="fDate"/>
+
+    <!-- Image upload -->
+    <div id="previewWrap" class="preview-wrap" style="display:none">
+      <img id="previewImg" src="" alt="preview"/>
+      <button class="btn-remove-img" onclick="removeImg()">×</button>
+    </div>
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fImage').click()">
+      <input type="file" id="fImage" accept="image/*" capture="environment" onchange="onImageChange(event)"/>
+      <div class="upload-icon">📷</div>
+      <div class="upload-text">แนบรูปภาพ / ถ่ายรูป</div>
+      <div class="upload-sub">คลิกเพื่อเลือกรูปหรือถ่ายรูป</div>
+    </div>
+
     <button class="btn-save" onclick="addTx()">บันทึก</button>
   </div>
 
@@ -115,6 +152,12 @@
   </div>
 </div>
 
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <img id="lightboxImg" src="" alt=""/>
+</div>
+
 <script>
 const MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 const CAT_INCOME = ["เงินเดือน","ธุรกิจ","ลงทุน","ของขวัญ","อื่นๆ"];
@@ -124,9 +167,8 @@ const COLORS = ["#6366f1","#22c55e","#f59e0b","#ec4899","#14b8a6","#f97316","#8b
 const fmt = n => "฿" + Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 });
 
 let now = new Date(), month = now.getMonth(), year = now.getFullYear();
-let txType = "expense";
-let txs = [];
-let chartInst = { income: null, expense: null };
+let txType = "expense", imgData = null;
+let txs = [], chartInst = { income: null, expense: null };
 
 try { txs = JSON.parse(localStorage.getItem("txs") || "[]"); } catch {}
 
@@ -152,6 +194,7 @@ function toggleForm() {
     setType("expense");
     document.getElementById("fAmount").value = "";
     document.getElementById("fNote").value = "";
+    removeImg();
   }
 }
 
@@ -164,6 +207,27 @@ function setType(t) {
   document.getElementById("btnExpense").className = "type-btn" + (t==="expense" ? " active-expense" : "");
 }
 
+function onImageChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    imgData = ev.target.result;
+    document.getElementById("previewImg").src = imgData;
+    document.getElementById("previewWrap").style.display = "block";
+    document.getElementById("uploadArea").style.display = "none";
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeImg() {
+  imgData = null;
+  document.getElementById("fImage").value = "";
+  document.getElementById("previewImg").src = "";
+  document.getElementById("previewWrap").style.display = "none";
+  document.getElementById("uploadArea").style.display = "block";
+}
+
 function addTx() {
   const amt = parseFloat(document.getElementById("fAmount").value);
   if (!amt || amt <= 0) { alert("กรุณากรอกจำนวนเงิน"); return; }
@@ -173,7 +237,8 @@ function addTx() {
     amount: amt,
     category: document.getElementById("fCategory").value,
     note: document.getElementById("fNote").value,
-    date: document.getElementById("fDate").value || now.toISOString().slice(0,10)
+    date: document.getElementById("fDate").value || now.toISOString().slice(0,10),
+    img: imgData || null
   };
   txs.unshift(tx);
   save();
@@ -187,11 +252,20 @@ function deleteTx(id) {
   render();
 }
 
+function openLightbox(src) {
+  document.getElementById("lightboxImg").src = src;
+  document.getElementById("lightbox").classList.add("open");
+}
+
+function closeLightbox() {
+  document.getElementById("lightbox").classList.remove("open");
+}
+
 function renderChart(canvasId, wrapId, data) {
   const wrap = document.getElementById(wrapId);
   if (!data.length) { wrap.style.display = "none"; return; }
   wrap.style.display = "block";
-  if (chartInst[canvasId]) { chartInst[canvasId].destroy(); }
+  if (chartInst[canvasId]) chartInst[canvasId].destroy();
   const ctx = document.getElementById(canvasId).getContext("2d");
   chartInst[canvasId] = new Chart(ctx, {
     type: "doughnut",
@@ -222,7 +296,6 @@ function render() {
   cb.textContent = fmt(bal);
   cb.className = "value" + (bal < 0 ? " neg" : "");
 
-  // charts
   const catMap = {};
   f.forEach(t => {
     const k = t.type+"__"+t.category;
@@ -231,12 +304,10 @@ function render() {
   });
   const expD = Object.values(catMap).filter(d=>d.type==="expense");
   const incD = Object.values(catMap).filter(d=>d.type==="income");
-  const chartBox = document.getElementById("chartBox");
-  chartBox.style.display = (expD.length || incD.length) ? "block" : "none";
+  document.getElementById("chartBox").style.display = (expD.length||incD.length) ? "block" : "none";
   renderChart("expenseChart","expenseChartWrap", expD);
   renderChart("incomeChart","incomeChartWrap", incD);
 
-  // list
   document.getElementById("listHeader").textContent = `รายการทั้งหมด (${f.length})`;
   document.getElementById("btnExport").style.display = f.length ? "block" : "none";
   const list = document.getElementById("txList");
@@ -249,6 +320,7 @@ function render() {
         <div class="tx-date">${new Date(t.date).toLocaleDateString("th-TH")}</div>
       </div>
       <span class="tx-amount ${t.type}">${t.type==="income"?"+":"-"}${fmt(t.amount)}</span>
+      ${t.img ? `<img class="tx-thumb" src="${t.img}" onclick="openLightbox('${t.img}')" alt="slip"/>` : ""}
       <button class="btn-del" onclick="deleteTx(${t.id})">×</button>
     </div>
   `).join("");
